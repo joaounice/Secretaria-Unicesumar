@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DEMANDA CSC</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        /* ==================================== */
+        /* Estilos Base do Corpo e Organograma */
+        /* ==================================== */
+        body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            min-height: 100vh;
+            
+            /* Fundo Microsoft Fluent Design Escuro */
+            background-color: #212121; 
+            background-image: url('https://logincdn.msftauth.net/shared/5/images/fluent_web_dark_2_bf5f23287bc9f60c9be2.svg');
+            background-size: cover; 
+            background-repeat: no-repeat;
+            background-attachment: fixed; 
+        }
+
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .infographic-container {
+            position: relative;
+            width: 800px; 
+            height: 800px; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 50px;
+            perspective: 1000px; 
+        }
+
+        .department-group {
+            position: absolute; 
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.5s ease-in-out, transform 0.5s ease;
+        }
+        .hidden-view {
+            opacity: 0;
+            pointer-events: none;
+            z-index: 0;
+            visibility: hidden;
+            transform: scale(0.8); 
+        }
+
+        /* ==================================== */
+        /* MENU LATERAL - VERSÃO MINIMALISTA EXECUTIVA */
+        /* ==================================== */
+
+        /* 1. Base da Sidebar - Foco na Transparência Sutil e Limpeza */
+        .sidebar {
+            width: 240px; 
+            background-color: rgba(13, 13, 13, 0.85); 
+            backdrop-filter: blur(12px); 
+            -webkit-backdrop-filter: blur(12px);
+            color: #e0e0e0; 
+            padding: 25px 0;
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100%;
+            box-shadow: 5px 0 20px rgba(0, 0, 0, 0.7);
+            z-index: 200;
+            border-right: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        /* 2. TÍTULO/LOGO AJUSTADO */
+        .sidebar-title {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 0 15px 15px 15px;
+            border-bottom: 1px solid #333333; 
+            
+            /* Centraliza o logo no container e define uma altura mínima */
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 80px; 
+        }
+        
+        /* NOVO: Estilo para a imagem do logo - TAMANHO AUMENTADO */
+        .sidebar-logo {
+            max-width: 95%; /* Aumentado de 80% para 95% para ser quase a largura total */
+            max-height: 140px; /* Aumentado de 70px para 140px */
+            width: auto;
+            height: auto;
+            display: block; 
+        }
+
+        /* 3. Item de Navegação Base */
+        .sidebar-item {
+            display: flex;
+            align-items: center;
+            padding: 15px 25px; 
+            cursor: pointer;
+            transition: background-color 0.3s ease, border-left 0.3s ease, color 0.3s;
+            border-left: 5px solid transparent; 
+            font-weight: 400; 
+            font-size: 15px; 
+            margin: 2px 0; 
+        }
+
+        /* 4. Hover - Efeito de Limpeza */
+        .sidebar-item:hover {
+            background-color: #1a1a1a; 
+            color: #ffffff; 
+            border-left-color: #0078d4; 
+            transform: none; 
+            box-shadow: none; 
+        }
+
+        /* 5. Item ATIVO - Realce Focado e Clássico */
+        .sidebar-item.active {
+            background-color: rgba(0, 120, 212, 0.2); 
+            color: white;
+            border-left: 5px solid #0078d4; 
+            font-weight: 600;
+            box-shadow: none; 
+        }
+
+        /* 6. Ícones */
+        .sidebar-item i {
+            margin-right: 15px; 
+            font-size: 18px; 
+            color: #707070; 
+            transition: color 0.3s;
+        }
+
+        .sidebar-item:hover i {
+            color: #0078d4; 
+        }
+        .sidebar-item.active i {
+            color: #ffffff; 
+        }
+        
+        /* ==================================== */
+        /* Estilos do Círculo Central (Branch) */
+        /* ==================================== */
+        .department-branch {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            width: 180px; 
+            height: 180px;
+            border-radius: 50%;
+            background-color: #0078d4; 
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5); 
+            z-index: 12; 
+            border: 5px solid #ffffff; 
+            box-sizing: border-box; 
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); 
+            color: #fff; 
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding-top: 15px; 
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.3); 
+        }
+        .department-branch:hover {
+            transform: translate(-50%, -50%) scale(1.15);
+            box-shadow: 0 18px 45px rgba(0, 0, 0, 0.4);
+            z-index: 15; 
+            border-color: #d4d4d4; 
+        }
+        .department-branch .icon { 
+            font-size: 70px; 
+            margin-bottom: 5px; 
+            color: #fff; 
+        }
+        .department-branch .branch-title {
+            position: absolute;
+            bottom: -50px; 
+            font-size: 17px; 
+            font-weight: 700;
+            color: #e0e0e0; 
+            text-transform: uppercase;
+            text-align: center;
+            letter-spacing: 0.8px;
+            line-height: 1.2; 
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+        
+        /* ==================================== */
+        /* Estilos dos Membros (Círculos Externos) */
+        /* ==================================== */
+        .team-member {
+            position: absolute;
+            width: 100px; 
+            height: 100px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.1); 
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.4), 0 0 0 2px rgba(255, 255, 255, 0.15); 
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 7;
+            border: 4px solid #0078d4; 
+            box-sizing: border-box; 
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            color: #e0e0e0; 
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.4);
+        }
+        .team-member .text {
+            font-size: 13px;
+            font-weight: 600;
+            margin-top: 5px;
+        }
+        .team-member i {
+            font-size: 35px;
+            color: #e0e0e0;
+        }
+        .team-member:hover {
+            transform: scale(1.1); 
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 0 4px rgba(255, 255, 255, 0.7); 
+            z-index: 20;
+            background-color: rgba(109, 185, 255, 0.2); 
+            border-color: transparent; 
+            color: #fff;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.6);
+        }
+        .team-member:hover i {
+            color: #fff;
+        }
+
+        /* Posicionamento dos membros (4 membros) */
+        .member-4-1 { top: 300px; left: 100px; } 
+        .member-4-2 { top: 150px; left: 250px; } 
+        .member-4-3 { top: 150px; left: 450px; } 
+        .member-4-4 { top: 300px; left: 600px; } 
+
+        /* ==================================== */
+        /* Estilos Tooltip */
+        /* ==================================== */
+        .tooltip {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%) translateY(15px); 
+            background-color: #0078d4; 
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px; 
+            font-weight: 500;
+            white-space: nowrap;
+            z-index: 25;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s, transform 0.3s;
+            pointer-events: none;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+        }
+        .tooltip::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -6px;
+            border-width: 6px;
+            border-style: solid;
+            border-color: #0078d4 transparent transparent transparent; 
+        }
+        .team-member .tooltip { bottom: calc(100% + 15px); }
+        .department-branch:hover .tooltip,
+        .team-member:hover .tooltip {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(0);
+        }
+        
+        /* ==================================== */
+        /* CSS: Estilização do Modal Tela Cheia */
+        /* ==================================== */
+
+        /* O Overlay (Fundo) do Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(0, 0, 0, 0.95);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+ 
+        /* O Conteúdo Principal do Modal (Planilha) */
+        .modal-content {
+            position: relative;
+            width: 100%;
+            height: 130%;
+            background: white;
+            border-radius: 0;
+            overflow: hidden;
+        }
+
+        #sheet-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: block;
+        }
+
+        /* Botão Fechar Minimalista */
+        .close-btn-minimal {
+            position: absolute;
+            top: 140px; 
+            right: 20px; 
+            z-index: 10000;
+            color: #d30000; 
+            font-size: 40px; 
+            font-weight: 300;
+            line-height: 1;
+            cursor: pointer;
+            text-shadow: 0 0 8px rgba(255, 0, 0, 0.8);
+            transition: color 0.3s, transform 0.3s;
+        }
+
+        .close-btn-minimal:hover {
+            color: #ce0000; 
+            transform: scale(1.1);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="sidebar-title">
+            <img src="https://drive.google.com/thumbnail?id=18WhdWeW61paD_dHxoo4SLwZLB3RAbSkl&sz=w1000" alt="Logo da Empresa" class="sidebar-logo">
+        </div>
+
+        <div id="nav-0" class="sidebar-item active" onclick="navigateView(0)">
+            <i class="fas fa-user-check"></i> EMISSÃO
+        </div>
+        
+        <div id="nav-1" class="sidebar-item" onclick="navigateView(1)">
+            <i class="fas fa-user-tie"></i> INGRESSO
+        </div>
+        
+        <div id="nav-2" class="sidebar-item" onclick="navigateView(2)">
+            <i class="fas fa-check-double"></i> VALIDAÇÃO
+        </div>
+        
+        <div id="nav-3" class="sidebar-item" onclick="navigateView(3)">
+            <i class="fas fa-graduation-cap"></i> EDUCAÇÃO CONTINUADA
+        </div>
+        
+        <div id="nav-4" class="sidebar-item" onclick="navigateView(4)">
+            <i class="fas fa-cog"></i> DESENV. E QUALIDADE
+        </div>
+    </div>
+    
+    <div class="main-content">
+        <div class="infographic-container">
+            
+            <div id="view-0" class="department-group">
+                <div class="department-branch">
+                    <i class="fas fa-user-check icon"></i> 
+                    <div class="branch-title">EMISSÃO</div>
+                </div>
+                
+                <div class="team-member member-4-1" onclick="openModal('1704363758')">
+                    <i class="fas fa-chalkboard-teacher"></i><div class="text">EAD</div>
+                    <div class="tooltip">EDUCAÇÃO A DISTÂNCIA</div>
+                </div>
+                <div class="team-member member-4-2" onclick="openModal('201235194')">
+                    <i class="fas fa-school"></i><div class="text">PRE</div>
+                    <div class="tooltip">PRESENCIAL</div>
+                </div>
+                <div class="team-member member-4-3" onclick="openModal('1583680458')">
+                    <i class="fas fa-laptop-code"></i><div class="text">SAE</div>
+                    <div class="tooltip">ATENDIMENTO ELETRÔNICO</div>
+                </div>
+                <div class="team-member member-4-4">
+                    <i class="fas fa-robot"></i><div class="text">RPA</div>
+                    <div class="tooltip">ROTINAS DE PROCESSOS AUTOMATIZADOS</div>
+                </div>
+            </div>
+
+            <div id="view-1" class="department-group hidden-view">
+                <div class="department-branch">
+                    <i class="fas fa-user-tie icon"></i> 
+                    <div class="branch-title">INGRESSO</div>
+                </div>
+                
+                <div class="team-member member-4-1" onclick="openModal('409605937')">
+                    <i class="fas fa-chalkboard-teacher"></i><div class="text">EAD</div>
+                    <div class="tooltip">EDUCAÇÃO A DISTÂNCIA</div>
+                </div>
+                <div class="team-member member-4-2" onclick="openModal('1161077243')">
+                    <i class="fas fa-school"></i><div class="text">PRE</div>
+                    <div class="tooltip">PRESENCIAL</div>
+                </div>
+                <div class="team-member member-4-3" onclick="openModal('1317351839')">
+                    <i class="fas fa-laptop-code"></i><div class="text">SAE</div>
+                    <div class="tooltip">ATENDIMENTO ELETRÔNICO</div>
+                </div>
+                <div class="team-member member-4-4" onclick="openModal('1883265269')">
+                    <i class="fas fa-robot"></i><div class="text">RPA</div>
+                    <div class="tooltip">ROTINAS DE PROCESSOS AUTOMATIZADOS</div>
+                </div>
+            </div>
+
+            <div id="view-2" class="department-group hidden-view">
+                <div class="department-branch">
+                    <i class="fas fa-check-double icon"></i> 
+                    <div class="branch-title">VALIDAÇÃO</div>
+                </div>
+                
+                <div class="team-member member-4-1" onclick="openModal('1767148887')">
+                    <i class="fas fa-laptop-code"></i><div class="text">SAE</div>
+                    <div class="tooltip">ATENDIMENTO ELETRÔNICO</div>
+                </div>
+                <div class="team-member member-4-2" onclick="openModal('1846142675')">
+                    <i class="fas fa-school"></i><div class="text">PRE</div>
+                    <div class="tooltip">PRESENCIAL</div>
+                </div>
+                <div class="team-member member-4-3" onclick="openModal('1646305774')">
+                    <i class="fas fa-chalkboard-teacher"></i><div class="text">EAD</div>
+                    <div class="tooltip">EDUCAÇÃO A DISTÂNCIA</div>
+                </div>
+                <div class="team-member member-4-4">
+                    <i class="fas fa-robot"></i><div class="text">RPA</div>
+                    <div class="tooltip">ROTINAS DE PROCESSOS AUTOMATIZADOS</div>
+                </div>
+            </div>
+
+            <div id="view-3" class="department-group hidden-view">
+                <div class="department-branch">
+                    <i class="fas fa-graduation-cap icon"></i> 
+                    <div class="branch-title">EDUCAÇÃO CONTINUADA</div>
+                </div>
+                
+                <div class="team-member member-4-1" onclick="openModal('903899050')">
+                    <i class="fas fa-user-graduate"></i><div class="text">PÓS</div>
+                    <div class="tooltip">PÓS - GRADUAÇÃO</div>
+                </div>
+                <div class="team-member member-4-2" onclick="openModal('654344607')">
+                    <i class="fas fa-laptop-code"></i><div class="text">SAE</div>
+                    <div class="tooltip">ATENDIMENTO ELETRÔNICO</div>
+                </div>
+                <div class="team-member member-4-3" onclick="openModal('89642064')">
+                    <i class="fas fa-tools"></i><div class="text">TPF</div>
+                    <div class="tooltip">TÉCNICO E PROFISSIONALIZANTES</div>
+                </div>
+                <div class="team-member member-4-4">
+                    <i class="fas fa-robot"></i><div class="text">RPA</div>
+                    <div class="tooltip">ROTINAS DE PROCESSOS AUTOMATIZADOS</div>
+                </div>
+            </div>
+
+            <div id="view-4" class="department-group hidden-view">
+                <div class="department-branch">
+                    <i class="fas fa-cog icon"></i> 
+                    <div class="branch-title">DESENVOLVIMENTO E QUALIDADE</div>
+                </div>
+                
+                <div class="team-member member-4-1" onclick="openModal('1931925589')">
+                    <i class="fas fa-chalkboard-teacher"></i><div class="text">EAD</div>
+                    <div class="tooltip">EDUCAÇÃO A DISTÂNCIA</div>
+                </div>
+                <div class="team-member member-4-2" onclick="openModal('1846976772')">
+                    <i class="fas fa-tools"></i><div class="text">ITE</div>
+                    <div class="tooltip">INDICADORES BI</div>
+                </div>
+                <div class="team-member member-4-3" onclick="openModal('765424552')">
+                    <i class="fas fa-laptop-code"></i><div class="text">RIN</div>
+                    <div class="tooltip">RELAÇÕES INSTITUCIONAIS</div>
+                </div>
+                <div class="team-member member-4-4">
+                    <i class="fas fa-robot"></i><div class="text">RPA</div>
+                    <div class="tooltip">ROTINAS DE PROCESSOS AUTOMATIZADOS</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="fullScreenModal" class="modal-overlay">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <span class="close-btn-minimal" onclick="closeModal()">
+                &times;
+            </span>
+            
+            <iframe id="sheet-iframe" src="" allowfullscreen></iframe>
+        </div>
+    </div>
+
+    <script>
+        // ==================================
+        // JAVASCRIPT: Lógica de Navegação e Modal
+        // ==================================
+
+        // Array com os Sheet IDs na ordem das views (0 a 4) - **NOTA: ESTES SÃO EXEMPLOS. VOCÊ DEVE SUBSTITUIR PELOS SEUS PRÓPRIOS IDS DE PLANILHAS.**
+        const sheetIds = [
+            "1LBhDXY4UtasbZ1Ftg1d--pz6QVdcHk4fng5XPVsy5Bs", // View 0: EMISSÃO
+            "1N8w6t-H27994EY7IaksHMnIt6OJETZijcd7peWHQIoI", // View 1: INGRESSO
+            "1MdyDORs1cX2ldYZzRVZyy8fJI2EUKG8IIw3cnYd1GoQ", // View 2: VALIDAÇÃO
+            "1hzOzpoe_gfalpoDznxyxHDwu4iM9QQ2H9KSYNdIhFzw", // View 3: EDUCAÇÃO CONTINUADA
+            "1ctYOHJl6NGgM46zueq8nJ-ofc2UTGyvxosDLmJCAPno"  // View 4: DESENVOLVIMENTO E QUALIDADE
+        ];
+        
+        const modal = document.getElementById('fullScreenModal');
+        const iframe = document.getElementById('sheet-iframe');
+        
+        let currentViewIndex = 0;
+        const totalViews = 5; 
+
+        const views = [];
+        for (let i = 0; i < totalViews; i++) {
+            views.push(document.getElementById(`view-${i}`));
+        }
+        
+        // Elementos de Navegação do Sidebar
+        const sidebarItems = [];
+        for (let i = 0; i < totalViews; i++) {
+            sidebarItems.push(document.getElementById(`nav-${i}`));
+        }
+
+
+        /**
+         * Navega para a view desejada (usado pelo menu lateral).
+         * @param {number} newIndex - O índice da view para a qual navegar (0 a 4).
+         */
+        function navigateView(newIndex) {
+            
+            // Verifica se o índice é válido
+            if (newIndex >= 0 && newIndex < totalViews) {
+                // Esconde a view e desativa o item de menu atual
+                views[currentViewIndex].classList.add('hidden-view');
+                sidebarItems[currentViewIndex].classList.remove('active');
+                
+                // Atualiza o índice
+                currentViewIndex = newIndex;
+                
+                // Mostra a nova view e ativa o novo item de menu
+                views[currentViewIndex].classList.remove('hidden-view');
+                sidebarItems[currentViewIndex].classList.add('active');
+            }
+        }
+
+
+        /**
+         * Abre o modal, carrega a URL da planilha e impede a rolagem da página.
+         * @param {string} [sheetGid] - O ID da guia (gid) da planilha a ser carregada (opcional).
+         */
+        function openModal(sheetGid) {
+            // Usa o índice atual para selecionar o ID da planilha correto
+            const currentSheetId = sheetIds[currentViewIndex];
+            
+            // URL base de incorporação
+            let embedUrl = `https://docs.google.com/spreadsheets/d/${currentSheetId}/edit?usp=sharing&embedded=true`;
+            
+            // Se um GID for fornecido (para ir a uma aba específica)
+            if (sheetGid) {
+                embedUrl += `&gid=${sheetGid}`;
+            }
+
+            iframe.src = embedUrl; 
+            modal.style.display = 'flex'; 
+            document.body.style.overflow = 'hidden'; 
+        }
+
+        /**
+         * Fecha o modal, limpa a URL do iframe e restaura a rolagem.
+         */
+        function closeModal() {
+            modal.style.display = 'none'; 
+            iframe.src = ''; 
+            document.body.style.overflow = 'auto'; 
+        }
+
+        // Adiciona funcionalidade para fechar o modal clicando no fundo (overlay)
+        modal.addEventListener('click', function(event) {
+            if (event.target === modal) {
+                closeModal();
+            }
+        });
+    </script>
+
+</body>
+</html>
