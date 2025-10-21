@@ -1,0 +1,412 @@
+/* Importação da fonte Poppins */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
+/* Variáveis CSS para Cores - Modo CLARO (padrão) */
+:root {
+    --primary-color: #7262f2; /* Roxo */
+    --text-color: #333;
+    --sidebar-bg: #fff;
+    --background-light: #f4f6fa; /* Cor de fundo da página */
+    --search-bg: #f0f2f7;
+    --search-border: #e0e2e8;
+    --item-hover-bg: #e0e6f3;
+    --toggle-bg-off: #ccc;
+    --toggle-slider: #fff;
+    --logo-subtext: #888;
+}
+
+/* Variáveis CSS para Cores - Modo ESCURO */
+.dark-mode {
+    --text-color: #e0e0e0;
+    --sidebar-bg: #2c2c54; /* Fundo do sidebar escuro */
+    --background-light: #1a1a2e; /* Fundo da página escuro */
+    --search-bg: #3c3c6e;
+    --search-border: #4a4a8d;
+    --item-hover-bg: #2b2b4d;
+    --toggle-bg-off: #555;
+    --toggle-slider: #ccc;
+    --logo-subtext: #aaa;
+}
+
+/* Reset Básico */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Poppins', sans-serif;
+}
+
+/* Estilo do Corpo da Página */
+body {
+    display: flex;
+    min-height: 100vh;
+    background-color: var(--background-light);
+    color: var(--text-color);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Estilo do Sidebar Principal */
+.sidebar {
+    width: 250px;
+    background-color: var(--sidebar-bg);
+    padding: 20px 0;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+/* Estilo do Cabeçalho (Logo e Título) */
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    margin-bottom: 25px;
+    position: relative; 
+}
+
+.sidebar-header .logo {
+    width: 40px;
+    height: 40px;
+    background-color: var(--primary-color);
+    color: #fff;
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: 700;
+    font-size: 1.2em;
+    margin-right: 10px;
+    flex-shrink: 0;
+}
+
+.sidebar-header .title {
+    display: flex;
+    flex-direction: column;
+    font-weight: 600;
+    font-size: 1.1em;
+    line-height: 1.2;
+    transition: opacity 0.3s ease, width 0.3s ease;
+}
+
+.sidebar-header .title span {
+    font-size: 0.8em;
+    font-weight: 400;
+    color: var(--logo-subtext);
+}
+
+/* Estilo do Botão de Colapso */
+.sidebar-header .collapse-btn {
+    position: absolute;
+    top: 50%;
+    right: -15px;
+    transform: translateY(-50%);
+    width: 30px;
+    height: 30px;
+    background-color: var(--primary-color);
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    font-size: 1.2em;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease, background-color 0.3s ease;
+    z-index: 10;
+}
+
+/* Estilo da Caixa de Pesquisa (Modo Expandido) */
+.search-box {
+    display: flex;
+    align-items: center;
+    background-color: var(--search-bg);
+    border: 1px solid var(--search-border);
+    border-radius: 8px;
+    margin: 0 20px 25px;
+    padding: 8px 12px;
+    transition: all 0.3s ease;
+}
+
+.search-box .material-icons-outlined {
+    color: #888;
+    margin-right: 10px;
+}
+
+.search-box input {
+    border: none;
+    background: transparent;
+    outline: none;
+    flex-grow: 1;
+    font-size: 0.9em;
+    color: var(--text-color);
+}
+
+.search-box input::placeholder {
+    color: #aaa;
+}
+
+/* Estilo dos Itens do Menu */
+.menu-items {
+    list-style: none;
+    flex-grow: 1; 
+}
+
+.menu-items li a {
+    display: flex;
+    align-items: center;
+    padding: 12px 15px; 
+    color: var(--text-color);
+    text-decoration: none;
+    font-size: 1em;
+    border-radius: 8px;
+    margin: 5px 10px; 
+    transition: background-color 0.2s ease, color 0.2s ease, padding 0.3s ease, font-size 0.3s ease;
+}
+
+.menu-items li a.active,
+.menu-items li a:hover {
+    background-color: var(--item-hover-bg);
+    color: var(--primary-color);
+    font-weight: 500;
+}
+
+.menu-items li a .material-icons-outlined {
+    margin-right: 15px;
+    font-size: 1.4em;
+    transition: margin-right 0.3s ease, font-size 0.3s ease;
+}
+
+/* Estilo do Rodapé (Logout e Dark Mode) */
+.sidebar-footer {
+    padding: 20px;
+    border-top: 1px solid var(--search-border);
+    margin-top: auto;
+    transition: border-top 0.3s ease;
+}
+
+.sidebar-footer .logout-btn {
+    display: flex;
+    align-items: center;
+    padding: 12px 10px;
+    color: #f00; 
+    text-decoration: none;
+    font-size: 1em;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    transition: background-color 0.2s ease, color 0.2s ease, margin-bottom 0.3s ease;
+}
+
+.sidebar-footer .logout-btn:hover {
+    background-color: rgba(255, 0, 0, 0.1);
+}
+
+.sidebar-footer .logout-btn .material-icons-outlined {
+    margin-right: 15px;
+    font-size: 1.4em;
+    transition: margin-right 0.3s ease;
+}
+
+/* Estilo do Toggle de Dark Mode */
+.dark-mode-toggle {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 1em;
+    color: var(--text-color);
+}
+
+.dark-mode-toggle .mode-text {
+    display: flex;
+    align-items: center;
+    font-weight: 500;
+    transition: font-size 0.3s ease, opacity 0.3s ease;
+}
+
+.dark-mode-toggle .material-icons-outlined {
+    margin-right: 10px;
+    font-size: 1.4em;
+}
+
+/* --- ESTILOS DO SWITCH (TOGGLE) --- */
+
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 45px; 
+    height: 24px; 
+    flex-shrink: 0;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--toggle-bg-off);
+    transition: .4s;
+    border-radius: 34px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: var(--toggle-slider);
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: var(--primary-color);
+}
+
+input:checked + .slider:before {
+    transform: translateX(21px); 
+}
+
+/* Estilo para o Conteúdo Principal */
+.main-content {
+    flex-grow: 1;
+    padding: 40px;
+    transition: margin-left 0.3s ease;
+}
+
+/* ================================================= */
+/* ESTILOS DO SIDEBAR COLAPSADO (.collapsed)         */
+/* ================================================= */
+
+.sidebar.collapsed {
+    width: 90px;
+}
+
+/* 1. Gira o botão (o chevron_left se torna um chevron_right) */
+.sidebar.collapsed .collapse-btn {
+    transform: translateY(-50%) rotate(180deg);
+}
+
+/* 2. Esconde o texto principal do título e centraliza o logo */
+.sidebar.collapsed .sidebar-header {
+    justify-content: center;
+    padding: 0;
+}
+.sidebar.collapsed .sidebar-header .logo {
+    margin-right: 0;
+}
+.sidebar.collapsed .sidebar-header .title {
+    opacity: 0;
+    width: 0;
+    overflow: hidden;
+    margin-left: -10px;
+}
+
+/* 3. Estiliza a caixa de pesquisa como um bloco de ícone */
+.sidebar.collapsed .search-box {
+    background-color: var(--item-hover-bg); 
+    border: 1px solid var(--search-border);
+    border-radius: 8px;
+    
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    width: auto;
+    height: 40px; 
+    padding: 0;
+    
+    margin: 0 10px 25px; 
+    
+    overflow: hidden; 
+    opacity: 1;
+}
+
+/* 3.1 Esconde o input de texto */
+.sidebar.collapsed .search-box input {
+    width: 0;
+    opacity: 0;
+    padding: 0;
+}
+
+/* 3.2 Estiliza e centraliza o ícone de busca */
+.sidebar.collapsed .search-box .material-icons-outlined {
+    margin: 0; 
+    color: var(--primary-color); 
+    font-size: 1.8em; 
+}
+
+
+/* 4. Estilos dos ITENS DE MENU (Gerais) */
+.sidebar.collapsed .menu-items li a {
+    justify-content: center;
+    padding: 12px 0;
+    margin: 5px 10px; 
+    font-size: 0; 
+}
+/* Garante que o ícone do menu permaneça visível, centralizado e com o tamanho correto */
+.sidebar.collapsed .menu-items li a .material-icons-outlined {
+    margin-right: 0;
+    font-size: 1.8em !important; /* FORÇA o tamanho do ícone */
+    display: inline-block !important; /* FORÇA a exibição como bloco */
+}
+
+/* 4.1 Cor dos ícones INATIVOS no modo colapsado */
+.sidebar.collapsed .menu-items li a:not(.active) .material-icons-outlined {
+    color: #888; /* Cinza suave para ícones inativos */
+}
+/* 4.2 Garante que o hover funcione no modo colapsado */
+.sidebar.collapsed .menu-items li a:hover .material-icons-outlined {
+    color: var(--primary-color); 
+}
+
+
+/* 5. Estilo Específico para o ITEM ATIVO (Dashboard) */
+.sidebar.collapsed .menu-items li a.active {
+    background-color: var(--item-hover-bg); 
+    color: var(--primary-color);
+    justify-content: center;
+    font-size: 0;
+    padding: 12px 0;
+}
+.sidebar.collapsed .menu-items li a.active .material-icons-outlined {
+    color: var(--primary-color);
+}
+
+
+/* 6. Estilos do RODAPÉ */
+.sidebar.collapsed .sidebar-footer {
+    padding: 20px 0; 
+}
+/* Logout */
+.sidebar.collapsed .sidebar-footer .logout-btn {
+    justify-content: center;
+    margin-bottom: 10px;
+    font-size: 0; 
+    color: #f00; 
+    padding: 12px 0; /* Garante o mesmo padding dos itens do menu */
+    margin: 5px 10px; /* Garante o mesmo espaçamento lateral */
+}
+.sidebar.collapsed .sidebar-footer .logout-btn .material-icons-outlined {
+    margin-right: 0;
+    color: #f00 !important; /* FORÇA a cor vermelha no ícone de logout */
+    font-size: 1.8em !important; /* FORÇA o tamanho */
+}
+/* Dark Mode Toggle */
+.sidebar.collapsed .dark-mode-toggle {
+    justify-content: center;
+}
+.sidebar.collapsed .dark-mode-toggle .mode-text {
+    font-size: 0;
+    opacity: 0;
+    width: 0;
+}
