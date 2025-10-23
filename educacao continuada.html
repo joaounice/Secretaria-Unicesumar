@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tabela de Dados da Planilha Google Sheets</title>
+    <link rel="stylesheet" href="edc.css">
+    </head>
+
+<body>
+
+    <h1>VALIDAÇÃO</h1>
+
+    <div id="tabs-container">
+    </div>
+
+    <div id="tabela-container" class="loading">Carregando dados...</div>
+
+    <div id="colaboradorModal" class="modal">
+        <div class="modal-content">
+            <h2>Iniciar Atendimento</h2>
+            <label for="colaboradorSelectModal">Selecione o Colaborador:</label>
+            <select id="colaboradorSelectModal">
+                <option value="">-- Selecione um Nome --</option>
+            </select>
+            <button id="salvarColaboradorBtn">Iniciar</button>
+            <button id="fecharModalBtn" class="close-btn">Cancelar</button>
+        </div>
+    </div>
+    <div id="filter-popup" style="display: none;">
+        <div id="filter-options">
+        </div>
+        <div id="filter-actions">
+            <button id="filter-select-all">Selecionar Todos</button>
+            <button id="filter-clear" class="clear-btn">Limpar Filtro</button>
+            <button id="filter-apply">Aplicar</button>
+        </div>
+    </div>
+    </body>
+
+</html>
