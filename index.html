@@ -507,7 +507,7 @@
 
 <body>
 
-    <h1>VALIDAÇÃO</h1>
+    <h1>EDUCAÇÃO CONTINUADA</h1>
 
     <div id="tabs-container">
     </div>
@@ -539,7 +539,7 @@
     <div id="loading-overlay">
         <div class="spinner"></div>
         <div id="conflict-message" style="display: none;">
-            <p>⚠️ OPS, já tem alguém atendendo!</p>
+            <p>⚠️ Opção, já tem alguém atendendo!</p>
             <p id="conflict-colaborador-name"></p>
             <button id="ok-conflict-btn">Entendi</button>
         </div>
@@ -742,19 +742,7 @@
                 isInitialClaim: isInitialClaim 
             };
 
-            // Para o polling SOMENTE se for uma ação que afete o estado da linha (claim, status change)
-            const statusSelect = rowElement.querySelector('td[data-col="status"] select');
-            const prevStatusValue = statusSelect.getAttribute('data-prev-value') ? 
-                                    statusSelect.getAttribute('data-prev-value').toUpperCase() : 
-                                    '';
-                                    
-            const isCriticalAction = isInitialClaim || 
-                                     (statusValue.toUpperCase() !== prevStatusValue);
-
-
-            if (isCriticalAction) {
-                 pararPolling();
-            }
+            pararPolling();
 
             try {
                 console.log("Dados a serem enviados:", dataToSave);
@@ -774,6 +762,7 @@
                     console.log(`Linha ${rowIndex} atualizada com status: ${dataToSave.status}.`);
 
                     if (dataToSave.status.toUpperCase() === 'CONCLUÍDO') {
+                        // Não reiniciamos o polling aqui, pois ele é reiniciado no gerenciarVisibilidadeColunas
                         await carregarDadosPlanilha(GID_ATUAL);
                         alert(`Concluído e Salvo na aba ${nomeDaAba}! A tabela foi recarregada.`);
                     }
@@ -794,11 +783,10 @@
                 console.error("Erro no fetch:", error);
                 return { success: false, error: "Network Error" };
             } finally {
-                // Reinicia o Polling apenas para ações críticas
-                if (isCriticalAction) {
-                     iniciarPolling();
-                }
-                // Nota: Para salvar 'Observação', o reinício do polling está no listener 'blur'
+                // O polling não é mais reiniciado aqui. Ele é reiniciado por:
+                // 1. O okConflictBtn (se houver conflito no claim).
+                // 2. O gerenciarVisibilidadeColunas (se o status for alterado).
+                // 3. O listener de 'blur' do textarea (se for alteração de observação).
             }
         }
         // -----------------------------------------------------
@@ -827,7 +815,7 @@
         function showConflictOverlay(colaborador) {
             // O loadingOverlay já está visível
             spinnerElement.style.display = 'none'; 
-            conflictColaboradorName.textContent = colaborador ? `Em antendimento por: ${colaborador}` : '';
+            conflictColaboradorName.textContent = colaborador ? `Atendido por: ${colaborador}` : '';
             conflictMessageElement.style.display = 'block';
         }
         
@@ -838,8 +826,7 @@
             // Re-abre o modal para o usuário tentar novamente (caso queira selecionar outro item)
             // Usa o 'currentSelectElement' que foi preservado em 'salvarColaborador'
             if (currentSelectElement) { 
-                // Não re-abre o modal, apenas reseta o estado. Se o usuário quiser tentar novamente,
-                // ele clica no dropdown novamente.
+                abrirModal(currentSelectElement); 
             }
             
             // Limpa as variáveis após reabrir o modal
@@ -907,6 +894,7 @@
                 // 2. FECHA O MODAL VISUALMENTE
                 modal.style.display = 'none';
                 
+                let timerId = null;
                 let conflictOccurred = false;
 
                 // 3. CHAMA O SALVAMENTO PARA VERIFICAÇÃO (PRIMEIRA AÇÃO)
@@ -947,7 +935,7 @@
                             colaborador: novoNome
                         });
                         
-                        hideLoadingOverlay(); 
+                        timerId = setTimeout(hideLoadingOverlay, 1500);
 
                     } else if (result.error && result.error.toUpperCase().includes('CONFLITO')) {
                         
@@ -956,36 +944,35 @@
                         const match = result.error.match(/por\s+(.*)/i);
                         const colaboradorConflito = match ? match[1].trim() : 'Outro Colaborador';
                         
-                        // Reverte o estado visual da linha para o que estava antes do clique
-                        revertRowToPendente(row); 
-
                         // Preserva a referência para o botão 'Entendi' poder reabrir o modal
                         currentConflictRow = row; 
 
                         // Mostra a mensagem de conflito. A linha continua visualmente no estado "Pendente".
                         showConflictOverlay(colaboradorConflito);
                         
+                        // O Polling permanece parado até o clique do botão 'Entendi'.
+
                     } else {
                         // Outro erro de servidor (o alerta já foi disparado dentro de salvarDadosPlanilha)
-                        hideLoadingOverlay(); 
+                        timerId = setTimeout(hideLoadingOverlay, 1500); 
                         iniciarPolling();
                     }
 
                 } catch (error) {
                     console.error("Erro fatal no salvamento do colaborador:", error);
-                    hideLoadingOverlay(); 
+                    timerId = setTimeout(hideLoadingOverlay, 1500); 
                     iniciarPolling();
                 } finally {
                     // Reinicia o Polling, a menos que haja um conflito (que é tratado no okConflictBtn)
-                    if (!conflictOccurred) {
+                    if (timerId !== null && !conflictOccurred) {
                         iniciarPolling();
-                        
-                        // Apenas limpamos a seleção se não houve conflito
-                        currentSelectElement = null;
-                        selectModal.value = '';
                     }
-                    // Se houve conflito, o currentSelectElement e selectModal.value são mantidos
-                    // para o botão 'Entendi' e o polling está parado.
+                    
+                    // Apenas limpamos a seleção se não houve conflito, para que o okConflictBtn possa usá-la.
+                    if (!conflictOccurred) {
+                         currentSelectElement = null;
+                         selectModal.value = '';
+                    }
                 }
 
             } else {
@@ -1027,16 +1014,15 @@
         async function gerenciarVisibilidadeColunas(selectElement) {
             const row = selectElement.closest('tr');
             const valorAtual = selectElement.value.toUpperCase();
-            const colaboradorTd = getColaboradorTd(row);
-            const colaboradorDoItem = colaboradorTd.textContent.trim(); // Nome atual
-            
 
             const valorAnterior = selectElement.getAttribute('data-prev-value') ?
                 selectElement.getAttribute('data-prev-value').toUpperCase() :
                 '';
 
+            const colaboradorPreenchido = getColaboradorTd(row).textContent.trim() !== '';
 
-            // 1. REGRA PRINCIPAL: Bloqueio de transição (Só pode ir para CONCLUÍDO)
+
+            // 1. REGRA PRINCIPAL: Bloqueio de transição
             if (valorAnterior === 'EM ANDAMENTO' &&
                 valorAtual !== 'CONCLUÍDO' &&
                 valorAtual !== 'EM ANDAMENTO') {
@@ -1062,27 +1048,26 @@
             // Tratamento da transição para "EM ANDAMENTO"
             if (valorAtual === 'EM ANDAMENTO') {
 
-                // 3. **NOVA VERIFICAÇÃO DE CONFLITO/RECLAMAÇÃO LOCAL**
-                if (colaboradorDoItem !== '') {
-                    // O item já está reclamado. Apenas garante que a interface reflita o estado 'EM ANDAMENTO'.
+                if (!colaboradorPreenchido) {
+                    abrirModal(selectElement); 
+                    return; 
+                } else {
                     row.classList.add('andamento-ativo');
                     toggleObservacaoDisabled(row, false);
                     
-                    // Configura o select para bloquear opções não relacionadas
-                    Array.from(selectElement.options).forEach(option => {
-                        if (option.value.toUpperCase() !== 'EM ANDAMENTO' && option.value.toUpperCase() !== 'CONCLUÍDO') {
-                            option.disabled = true;
-                        }
-                    });
-                    
-                    selectElement.setAttribute('data-prev-value', selectElement.value);
-                    return; // SAI: Não salva e não abre modal, a reclamação já ocorreu.
-                } 
-                
-                // 4. INÍCIO DA RECLAMAÇÃO (ABRIR MODAL)
-                abrirModal(selectElement); 
-                return; // O salvamento (claim) ocorrerá em salvarColaborador
-                
+                    showLoadingOverlay();
+                    await salvarDadosPlanilha(row); // Não é 'initial claim' aqui, é só salvamento
+                    setTimeout(hideLoadingOverlay, 2500);
+                    iniciarPolling(); // REINICIA O POLLING APÓS O SALVAMENTO
+
+                }
+
+                Array.from(selectElement.options).forEach(option => {
+                    if (option.value.toUpperCase() !== 'EM ANDAMENTO' && option.value.toUpperCase() !== 'CONCLUÍDO') {
+                        option.disabled = true;
+                    }
+                });
+
 
             } else if (valorAtual === 'CONCLUÍDO') {
 
@@ -1092,20 +1077,23 @@
                 
                 showLoadingOverlay();
                 await salvarDadosPlanilha(row);
-                hideLoadingOverlay();
+                setTimeout(hideLoadingOverlay, 2500);
+                iniciarPolling(); // REINICIA O POLLING APÓS O SALVAMENTO
+
 
                 Array.from(selectElement.options).forEach(option => option.disabled = false);
 
             } else { // Valor Atual é "" (vazio/pendente)
 
-                // Limpa o colaborador, liberando a linha
+                const colaboradorTd = getColaboradorTd(row);
                 colaboradorTd.textContent = '';
 
                 toggleObservacaoDisabled(row, true); 
                 
                 showLoadingOverlay();
                 await salvarDadosPlanilha(row);
-                hideLoadingOverlay();
+                setTimeout(hideLoadingOverlay, 2500);
+                iniciarPolling(); // REINICIA O POLLING APÓS O SALVAMENTO
             }
 
             selectElement.setAttribute('data-prev-value', selectElement.value);
@@ -1268,6 +1256,7 @@
 
                             select.addEventListener('change', (event) => {
                                 gerenciarVisibilidadeColunas(event.target);
+                                // O polling é reiniciado dentro de gerenciarVisibilidadeColunas após o salvamento.
                             });
 
                             const options = ["", "EM ANDAMENTO", "CONCLUÍDO"];
@@ -1294,23 +1283,53 @@
                             textarea.disabled = true;
                             textarea.classList.add('disabled-locked');
 
-                            // MUDANÇA AQUI: Para o polling quando o campo Observação ganha foco (começa a digitar)
+                            // NOVO: Para o polling ao focar no campo
                             textarea.addEventListener('focus', () => {
                                 pararPolling();
+                                console.log('Polling parado para digitação.');
                             });
 
-                            // MUDANÇA AQUI: Salva e reinicia o polling quando o campo Observação perde o foco (termina de digitar)
+                            // NOVO: Salva e inicia o polling ao sair do campo
                             textarea.addEventListener('blur', async () => {
                                 if (!textarea.disabled) {
-                                    await salvarDadosPlanilha(tr);
+                                    // Linha modificada: Removida a chamada a showLoadingOverlay() e setTimeout(hideLoadingOverlay, 1500)
+                                    await salvarDadosPlanilha(tr); 
                                 }
-                                iniciarPolling(); // Reinicia o polling
+                                iniciarPolling();
+                                console.log('Polling reiniciado após sair da observação.');
                             });
 
                             td.appendChild(textarea);
 
                         } else {
                             td.textContent = cellValue;
+                            
+                            // Lógica de copiar ao clicar para a coluna N°SOLICITAÇÃO
+                            if (colMap.colunaId === 'solicitacao') {
+                                td.style.cursor = 'copy'; 
+
+                                td.addEventListener('click', () => {
+                                    const textToCopy = td.textContent.trim();
+                                    
+                                    // Evita tentar copiar o texto de feedback 'COPIADO!'
+                                    if (textToCopy && textToCopy !== 'COPIADO!' && textToCopy !== '') {
+                                        
+                                        navigator.clipboard.writeText(textToCopy).then(() => {
+                                            const originalText = td.textContent;
+                                            td.textContent = 'COPIADO!';
+                                            
+                                            // Reverte para o valor original após 800ms
+                                            setTimeout(() => {
+                                                td.textContent = originalText;
+                                            }, 800);
+                                            
+                                        }).catch(err => {
+                                            console.error('Falha ao copiar:', err);
+                                            alert('Falha ao copiar o texto. Verifique as permissões do navegador.');
+                                        });
+                                    }
+                                });
+                            }
                         }
                     });
 
@@ -1570,7 +1589,6 @@
         document.addEventListener('DOMContentLoaded', iniciarTabs);
 
         // --- LÓGICA DE POLLING ---
-        // ATENÇÃO: Se for alterar este valor, considere o tempo de digitação na observação.
         const INTERVALO_ATUALIZACAO_MS = 3000; 
 
         let idIntervaloAtualizacao = null;
