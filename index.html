@@ -324,6 +324,7 @@
             background-image: none !important;
         }
 
+        /* Mantém o estilo para outras textareas que possam ser desabilitadas */
         td textarea.disabled-locked {
             cursor: not-allowed !important;
             background-color: #f8f9fa !important;
@@ -548,7 +549,7 @@
         // ATENÇÃO: Verifique a URL do seu Web App
         const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwz95L9Cs08gvHVbitCiKSqyQ6CcdnJm36Hx2FtsYzTgQ4ls5iCAcXBt_kP27WPauTW/exec';
 
-        // ATENÇÃO: Verifique se este ID de planilha (1LBhDXY4UtasbZ1Ftg1d--pz6QVdcHk4fng5XPVsy5Bs) é o correto.
+        // ATENÇÃO: Verifique se este ID de planilha (1LBhDXY4UtasbZ1Ftg1d--pz6QVdcHh4fng5XPVsy5Bs) é o correto.
         const BASE_PLANILHA_URL = 'https://docs.google.com/spreadsheets/d/1hzOzpoe_gfalpoDznxyxHDwu4iM9QQ2H9KSYNdIhFzw/gviz/tq?tqx=out:json&range=A2:L&gid=';
 
         // URL para buscar a lista de colaboradores
@@ -591,6 +592,30 @@
         const conflictColaboradorName = document.getElementById('conflict-colaborador-name');
         const okConflictBtn = document.getElementById('ok-conflict-btn');
         let currentConflictRow = null; 
+        
+        // --- LÓGICA DE POLLING ---
+        const INTERVALO_ATUALIZACAO_MS = 1000; 
+        let idIntervaloAtualizacao = null;
+
+        function iniciarPolling() {
+            if (idIntervaloAtualizacao !== null) {
+                return;
+            }
+            idIntervaloAtualizacao = setInterval(() => {
+                if (typeof iniciarTabs === 'function') {
+                    iniciarTabs();
+                }
+            }, INTERVALO_ATUALIZACAO_MS);
+        }
+
+        function pararPolling() {
+            if (idIntervaloAtualizacao !== null) {
+                clearInterval(idIntervaloAtualizacao);
+                idIntervaloAtualizacao = null;
+            }
+        }
+        // --- FIM LÓGICA DE POLLING ---
+
 
         // --- LÓGICA DE SINCRONIZAÇÃO ENTRE ABAS ---
         const SYNC_CHANNEL_NAME = 'educacao_continuada_sync';
@@ -613,7 +638,7 @@
                 }
 
                 toggleFormularioDisabled(rowElement, false);
-                toggleObservacaoDisabled(rowElement, false);
+                // REMOVEMOS AQUI: toggleObservacaoDisabled(rowElement, false);
                 rowElement.classList.add('andamento-ativo');
 
                 Array.from(statusSelect.options).forEach(option => {
@@ -641,6 +666,7 @@
         function getLinhaFormElements(rowElement) {
             const allElements = rowElement.querySelectorAll('select, textarea');
             const obsTextarea = getObservacaoTextarea(rowElement);
+            // Retorna todos os elementos de formulário, EXCETO a textarea de observação.
             return Array.from(allElements).filter(el => el !== obsTextarea);
         }
 
@@ -670,18 +696,6 @@
             }
         }
 
-        function toggleObservacaoDisabled(rowElement, isDisabled) {
-            const observacaoTextarea = getObservacaoTextarea(rowElement);
-            if (observacaoTextarea) {
-                observacaoTextarea.disabled = isDisabled;
-                if (isDisabled) {
-                    observacaoTextarea.classList.add('disabled-locked');
-                } else {
-                    observacaoTextarea.classList.remove('disabled-locked');
-                }
-            }
-        }
-        
         // Função para reverter a linha para o estado Pendente
         function revertRowToPendente(rowElement) {
             const statusSelect = rowElement.querySelector('td[data-col="status"] select');
@@ -695,7 +709,7 @@
             
             rowElement.classList.remove('andamento-ativo', 'concluido-ativo');
             toggleFormularioDisabled(rowElement, true);
-            toggleObservacaoDisabled(rowElement, true);
+            // REMOVEMOS AQUI: toggleObservacaoDisabled(rowElement, true);
             
             Array.from(statusSelect.options).forEach(option => option.disabled = false);
             statusSelect.setAttribute('data-prev-value', prevValue);
@@ -762,6 +776,7 @@
                     console.log(`Linha ${rowIndex} atualizada com status: ${dataToSave.status}.`);
 
                     if (dataToSave.status.toUpperCase() === 'CONCLUÍDO') {
+                        // Se o status for concluído, recarrega a tabela para remover a linha da visualização
                         await carregarDadosPlanilha(GID_ATUAL);
                         alert(`Concluído e Salvo na aba ${nomeDaAba}! A tabela foi recarregada.`);
                     }
@@ -910,7 +925,7 @@
                         statusSelect.value = 'EM ANDAMENTO';
 
                         toggleFormularioDisabled(row, false);
-                        toggleObservacaoDisabled(row, false);
+                        // REMOVEMOS AQUI: toggleObservacaoDisabled(row, false);
 
                         if (currentFilters['status']) {
                             delete currentFilters['status'];
@@ -1035,7 +1050,7 @@
 
             row.classList.remove('andamento-ativo', 'concluido-ativo');
             toggleFormularioDisabled(row, false); 
-            toggleObservacaoDisabled(row, true); 
+            // REMOVEMOS AQUI: toggleObservacaoDisabled(row, true);
 
             Array.from(selectElement.options).forEach(option => option.disabled = false);
 
@@ -1050,7 +1065,7 @@
                 } else {
                     // Se já tem colaborador (vencedor do lock), apenas salva outras alterações do formulário
                     row.classList.add('andamento-ativo');
-                    toggleObservacaoDisabled(row, false);
+                    // REMOVEMOS AQUI: toggleObservacaoDisabled(row, false);
                     
                     showLoadingOverlay();
                     await salvarDadosPlanilha(row); 
@@ -1068,7 +1083,7 @@
 
                 row.classList.add('concluido-ativo');
                 toggleFormularioDisabled(row, true); 
-                toggleObservacaoDisabled(row, true); 
+                // REMOVEMOS AQUI: toggleObservacaoDisabled(row, true);
                 
                 showLoadingOverlay();
                 await salvarDadosPlanilha(row);
@@ -1081,7 +1096,7 @@
                 const colaboradorTd = getColaboradorTd(row);
                 colaboradorTd.textContent = '';
 
-                toggleObservacaoDisabled(row, true); 
+                // REMOVEMOS AQUI: toggleObservacaoDisabled(row, true);
                 
                 showLoadingOverlay();
                 await salvarDadosPlanilha(row);
@@ -1094,6 +1109,7 @@
 
         async function carregarListaColaboradores() {
             try {
+                // ATENÇÃO: Mudança para usar o novo GID e URL para buscar colaboradores.
                 const response = await fetch(COLABORADORES_PLANILHA_URL);
                 const rawText = await response.text();
 
@@ -1265,22 +1281,19 @@
 
                             td.appendChild(select);
 
-                            // Coluna 'OBSERVAÇÃO'
+                            // Coluna 'OBSERVAÇÃO' (SEMPRE HABILITADA)
                         } else if (colMap.colunaId === 'observacao') {
                             const textarea = document.createElement('textarea');
                             textarea.value = cellValue;
                             textarea.placeholder = "Digite aqui suas observações...";
-
-                            textarea.disabled = true;
-                            textarea.classList.add('disabled-locked');
-
-
+                            
+                            // OBSERVAÇÃO NUNCA É DESABILITADA (Conforme solicitação)
+                            
                             textarea.addEventListener('blur', async () => {
-                                if (!textarea.disabled) {
-                                    showLoadingOverlay();
-                                    await salvarDadosPlanilha(tr);
-                                    setTimeout(hideLoadingOverlay, 1500); 
-                                }
+                                // O campo sempre está habilitado, então salva ao perder o foco.
+                                showLoadingOverlay();
+                                await salvarDadosPlanilha(tr);
+                                setTimeout(hideLoadingOverlay, 1500); 
                             });
 
                             td.appendChild(textarea);
@@ -1302,7 +1315,7 @@
                     if (colaboradorValue !== '' && upperCaseStatus === 'EM ANDAMENTO') {
                         tr.classList.add('andamento-ativo');
 
-                        toggleObservacaoDisabled(tr, false);
+                        // REMOVEMOS AQUI: toggleObservacaoDisabled(tr, false);
 
                         Array.from(statusSelect.options).forEach(option => {
                             if (option.value.toUpperCase() !== 'EM ANDAMENTO' && option.value.toUpperCase() !== 'CONCLUÍDO') {
@@ -1318,7 +1331,7 @@
 
                     if (isRowConcluded) {
                         toggleFormularioDisabled(tr, true); 
-                        toggleObservacaoDisabled(tr, true); 
+                        // REMOVEMOS AQUI: toggleObservacaoDisabled(tr, true); 
                     }
                 });
 
@@ -1544,40 +1557,6 @@
 
 
         document.addEventListener('DOMContentLoaded', iniciarTabs);
-
-        // --- LÓGICA DE POLLING ---
-        const INTERVALO_ATUALIZACAO_MS = 1000; 
-
-        let idIntervaloAtualizacao = null;
-
-
-        function iniciarPolling() {
-
-            if (idIntervaloAtualizacao !== null) {
-
-                return;
-            }
-
-            idIntervaloAtualizacao = setInterval(() => {
-
-                if (typeof iniciarTabs === 'function') {
-                    iniciarTabs();
-
-                }
-            }, INTERVALO_ATUALIZACAO_MS);
-
-
-        }
-
-
-        function pararPolling() {
-            if (idIntervaloAtualizacao !== null) {
-                clearInterval(idIntervaloAtualizacao);
-                idIntervaloAtualizacao = null;
-
-            }
-        }
-
 
         iniciarPolling();
     </script>
