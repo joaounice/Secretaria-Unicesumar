@@ -938,7 +938,7 @@
 
         // --- LÓGICA DE POLLING (SEGUNDO BLOCO SCRIPT) ---
 
-        const INTERVALO_ATUALIZACAO_MS = 15000; // 15 segundos (Corrigido de 2000)
+        const INTERVALO_ATUALIZACAO_MS = 2000; // 15 segundos (Corrigido de 2000)
 
         let idIntervaloAtualizacao = null;
 
