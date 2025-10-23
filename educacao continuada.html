@@ -417,7 +417,7 @@
 
 <body>
 
-    <h1>VALIDAÇÃO</h1>
+    <h1>EDUCAÇÃO CONTINUADA</h1>
 
     <div id="tabs-container">
     </div>
@@ -660,11 +660,6 @@
                 alert("ERRO de conexão ou rede ao tentar salvar os dados. Verifique a WEB_APP_URL.");
                 console.error("Erro no fetch:", error);
             }
-
-            // --- CORREÇÃO DE FLICKERING ---
-            // Reinicia o Polling após a tentativa de salvamento.
-            iniciarPolling();
-            // --- FIM CORREÇÃO DE FLICKERING ---
         }
         // -----------------------------------------------------
 
@@ -720,9 +715,6 @@
 
                 // NOVO: Desabilita a observação se voltar para status vazio
                 toggleObservacaoDisabled(row, true);
-
-                // Garante que o polling volta a rodar se o modal foi cancelado antes de salvar
-                iniciarPolling(); 
             }
 
             currentSelectElement = null;
@@ -730,12 +722,6 @@
         }
 
         function salvarColaborador() {
-            // --- CORREÇÃO DE FLICKERING ---
-            // Para o Polling para evitar que dados desatualizados do servidor 
-            // sobrescrevam a atualização local imediata. O Polling será reiniciado em salvarDadosPlanilha().
-            pararPolling();
-            // --- FIM CORREÇÃO DE FLICKERING ---
-
             if (!currentSelectElement) return;
 
             const novoNome = selectModal.value.trim();
@@ -773,9 +759,11 @@
                     colaborador: novoNome
                 });
 
-                // CHAMA O SALVAMENTO (Assíncrono, que dispara o applyFilter quando finaliza e REINICIA O POLLING)
+                // CHAMA O SALVAMENTO (Assíncrono, que dispara o applyFilter quando finaliza)
                 salvarDadosPlanilha(row);
                 
+                // REMOVIDA A CHAMADA REDUNDANTE: gerenciarVisibilidadeColunas(statusSelect);
+
             } else {
                 statusSelect.value = statusSelect.getAttribute('data-prev-value');
                 alert("Selecione um nome para iniciar o atendimento.");
@@ -852,18 +840,13 @@
             if (valorAtual === 'EM ANDAMENTO') {
 
                 if (!colaboradorPreenchido) {
-                    // Para o Polling ao abrir o modal, o Polling voltará a rodar se o modal for cancelado.
-                    pararPolling();
                     abrirModal(selectElement); // ABRE O MODAL PARA OBTER O NOME
                     return; // SAI DA FUNÇÃO, O SALVAMENTO SERÁ FEITO EM salvarColaborador()
                 } else {
                     row.classList.add('andamento-ativo');
                     // Habilita o campo de observação
                     toggleObservacaoDisabled(row, false);
-                    
-                    // Pausa o polling e salva (o polling será reiniciado em salvarDadosPlanilha)
-                    pararPolling(); 
-                    salvarDadosPlanilha(row); 
+                    salvarDadosPlanilha(row); // Salva a mudança (mantendo EM ANDAMENTO, ou quando o filtro foi aplicado manualmente)
                 }
 
                 // BLOQUEIO VISUAL COMPLETO PARA FORÇAR FLUXO APENAS PARA CONCLUÍDO/EM ANDAMENTO
@@ -879,9 +862,6 @@
                 row.classList.add('concluido-ativo');
                 toggleFormularioDisabled(row, true); // Bloqueia todos os campos exceto observação
                 toggleObservacaoDisabled(row, true); // Bloqueia a observação também
-                
-                // Pausa o polling e salva (o polling será reiniciado em salvarDadosPlanilha)
-                pararPolling();
                 salvarDadosPlanilha(row);
 
                 Array.from(selectElement.options).forEach(option => option.disabled = false);
@@ -892,9 +872,6 @@
                 colaboradorTd.textContent = '';
 
                 toggleObservacaoDisabled(row, true); // Garante que a observação está desabilitada
-                
-                // Pausa o polling e salva (o polling será reiniciado em salvarDadosPlanilha)
-                pararPolling();
                 salvarDadosPlanilha(row);
             }
 
@@ -1101,7 +1078,6 @@
                             textarea.addEventListener('blur', () => {
                                 // SÓ SALVA SE NÃO ESTIVER DESABILITADO
                                 if (!textarea.disabled) {
-                                    pararPolling(); // Pausa o polling antes de salvar no blur
                                     salvarDadosPlanilha(tr);
                                 }
                             });
@@ -1402,8 +1378,8 @@
 
     <script>
 
-        // --- CORREÇÃO: REDUÇÃO DO INTERVALO DE POLLING PARA SINCRONIZAÇÃO ENTRE MÁQUINAS ---
-        const INTERVALO_ATUALIZACAO_MS = 15000; // 5 segundos (Atualizado para reduzir a latência entre máquinas)
+
+        const INTERVALO_ATUALIZACAO_MS = 15000; // 15 segundos (Corrigido de 2000)
 
         let idIntervaloAtualizacao = null;
 
@@ -1443,4 +1419,3 @@
 </body>
 
 </html>
-
