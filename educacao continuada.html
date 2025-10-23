@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tabela de Dados da Planilha Google Sheets</title>
+    <link rel="stylesheet" href="edc.css">  
+    </head>
+
+<body>
+
+    <h1>VALIDAÇÃO</h1>
+
+    <div id="tabs-container">
+    </div>
+
+    <div id="tabela-container" class="loading">Carregando dados...</div>
+
+    <div id="colaboradorModal" class="modal">
+        <div class="modal-content">
+            <h2>Iniciar Atendimento</h2>
+            <label for="colaboradorSelectModal">Selecione o Colaborador:</label>
+            <select id="colaboradorSelectModal">
+                <option value="">-- Selecione um Nome --</option>
+            </select>
+            <button id="salvarColaboradorBtn">Iniciar</button>
+            <button id="fecharModalBtn" class="close-btn">Cancelar</button>
+        </div>
+    </div>
+    <div id="filter-popup" style="display: none;">
+        <div id="filter-options">
+        </div>
+        <div id="filter-actions">
+            <button id="filter-select-all">Selecionar Todos</button>
+            <button id="filter-clear" class="clear-btn">Limpar Filtro</button>
+            <button id="filter-apply">Aplicar</button>
+        </div>
+    </div>
+    <script>
+
+
+        // ATENÇÃO: Verifique a URL do seu Web App
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwz95L9Cs08gvHVbitCiKSqyQ6CcdnJm36Hx2FtsYzTgQ4ls5iCAcXBt_kP27WPauTW/exec';
+
+        // ATENÇÃO: Verifique se este ID de planilha (1LBhDXY4UtasbZ1Ftg1d--pz6QVdcHk4fng5XPVsy5Bs) é o correto.
+        const BASE_PLANILHA_URL = 'https://docs.google.com/spreadsheets/d/1hzOzpoe_gfalpoDznxyxHDwu4iM9QQ2H9KSYNdIhFzw/gviz/tq?tqx=out:json&range=A2:L&gid=';
+
+        // URL para buscar a lista de colaboradores
+        const COLABORADORES_PLANILHA_URL = 'https://docs.google.com/spreadsheets/d/1hzOzpoe_gfalpoDznxyxHDwu4iM9QQ2H9KSYNdIhFzw/gviz/tq?tqx=out:json&range=A:A&gid=575004445';
+
+
+        // Verifique se os GIDs estão corretos
+        const FONTES_DADOS = {
+            'POS': '903899050',
+            'SAE': '654344607',
+            'TPF': '89642064'
+        };
+
+        // GID_ATUAL é inicializado como null e só será setado em iniciarTabs se não for válido
+        let GID_ATUAL = null; 
+        let LISTA_COLABORADORES = []; // Array para armazenar os nomes dos colaboradores
+
+
+        // Adicionado atributo 'filterable'
+        const COLUNA_MAPA = [
+            { novoTitulo: "STATUS", jsonIndex: 0, colunaId: 'status', filterable: true },
+            { novoTitulo: "COLABORADOR", jsonIndex: 1, colunaId: 'colaborador', filterable: true },
+            { novoTitulo: "PLATAFORMA", jsonIndex: 2, colunaId: 'plataforma', filterable: true },
+            { novoTitulo: "N°SOLICITAÇÃO", jsonIndex: 3, colunaId: 'solicitacao', filterable: true },
+            { novoTitulo: "ASSUNTO", jsonIndex: 4, colunaId: 'assunto', filterable: true },
+            { novoTitulo: "DESCRIÇÃO", jsonIndex: 5, colunaId: 'descricao', filterable: true },
+            { novoTitulo: "CÉLULA", jsonIndex: 6, colunaId: 'celula', filterable: true },
+            { novoTitulo: "CAIXINHA", jsonIndex: 7, colunaId: 'caixinha', filterable: true },
+            { novoTitulo: "PARADOS NO NOME", jsonIndex: 8, colunaId: 'parados', filterable: true },
+            { novoTitulo: "DATA PRAZO", jsonIndex: 9, colunaId: 'data_prazo', filterable: false },
+            { novoTitulo: "SITUAÇÃO", jsonIndex: 10, colunaId: 'situacao', filterable: true },
+            { novoTitulo: "OBSERVAÇÃO", jsonIndex: 11, colunaId: 'observacao', filterable: false }
+        ];
+
+        let currentSelectElement = null; // Guarda o select de status que acionou o modal
+
+        // Variáveis GLOBAIS do FILTRO (NOVO)
+        let tableData = []; // Armazena todos os dados da tabela
+        let currentFilters = {}; // { colunaId: [valor1, valor2, ...], ... }
+        let currentFilterColumnId = null; // A coluna do popup de filtro atualmente aberto
+
+        // --- LÓGICA DE SINCRONIZAÇÃO ENTRE ABAS (BroadcastChannel) ---
+        const SYNC_CHANNEL_NAME = 'educacao_continuada_sync';
+        const statusChannel = new BroadcastChannel(SYNC_CHANNEL_NAME);
+
+        statusChannel.onmessage = (event) => {
+            const data = event.data;
+            const rowElement = document.querySelector(`tr[data-row-index="${data.rowIndex}"]`);
+
+            if (data.action === 'lock_item' && rowElement) {
+
+                const colaboradorTd = getColaboradorTd(rowElement);
+                const statusSelect = rowElement.querySelector('td[data-col="status"] select');
+
+                // Garante que a linha tenha o colaborador e o status "EM ANDAMENTO"
+                if (statusSelect.value.toUpperCase() !== 'EM ANDAMENTO') {
+                    statusSelect.value = 'EM ANDAMENTO';
+                }
+                if (colaboradorTd.textContent.trim() === '') {
+                    colaboradorTd.textContent = data.colaborador;
+                }
+                
+                // Aplica os bloqueios/visibilidade
+                toggleFormularioDisabled(rowElement, false); 
+                toggleObservacaoDisabled(rowElement, false);
+                rowElement.classList.add('andamento-ativo');
+
+                // Força o bloqueio de status para a opção "EM ANDAMENTO" e "CONCLUÍDO"
+                Array.from(statusSelect.options).forEach(option => {
+                    if (option.value.toUpperCase() !== 'EM ANDAMENTO' && option.value.toUpperCase() !== 'CONCLUÍDO') {
+                        option.disabled = true;
+                    }
+                });
+
+                // Salva o valor anterior para evitar o modal novamente
+                statusSelect.setAttribute('data-prev-value', 'EM ANDAMENTO');
+
+                console.log(`[Broadcast] Item ${data.rowIndex} bloqueado e em andamento por outra aba.`);
+            }
+        };
+        // --- FIM LÓGICA DE SINCRONIZAÇÃO ---
+
+
+        function getColaboradorTd(rowElement) {
+            // Busca a célula TD do colaborador
+            return rowElement.querySelector('td[data-col="colaborador"]');
+        }
+
+        function getObservacaoTextarea(rowElement) {
+            // CORREÇÃO: Busca o textarea DENTRO da célula da observação
+            return rowElement.querySelector('td[data-col="observacao"] textarea');
+        }
+
+        // Retorna todos os elementos de formulário exceto a Observação
+        function getLinhaFormElements(rowElement) {
+            // Seleciona todos os selects e textareas, mas filtra para excluir o textarea de observação
+            const allElements = rowElement.querySelectorAll('select, textarea');
+            const obsTextarea = getObservacaoTextarea(rowElement);
+
+            const filteredElements = Array.from(allElements).filter(el => el !== obsTextarea);
+
+            return filteredElements;
+        }
+
+        // Função para bloquear/desbloquear todos os campos exceto o OBSERVAÇÃO
+        function toggleFormularioDisabled(rowElement, isDisabled) {
+            const elements = getLinhaFormElements(rowElement);
+
+            elements.forEach(el => {
+                el.disabled = isDisabled;
+                if (isDisabled) {
+                    el.classList.add('disabled-locked');
+                } else {
+                    el.classList.remove('disabled-locked');
+                }
+            });
+
+            // Lógica visual específica para o select de status
+            const statusSelect = rowElement.querySelector('td[data-col="status"] select');
+            if (statusSelect) {
+                if (!isDisabled) {
+                    Array.from(statusSelect.options).forEach(option => option.disabled = false);
+                }
+
+                if (isDisabled) {
+                    statusSelect.style.backgroundImage = 'none';
+                } else {
+                    statusSelect.style.backgroundImage = 'url(\'data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23000%22%20d%3D%22M287%20194L154%2061l-133%20133%22%2F%3E%3C%2Fsvg%3E\')';
+                }
+            }
+        }
+
+
+        // NOVA FUNÇÃO: Gerencia o bloqueio/desbloqueio do campo de Observação
+        function toggleObservacaoDisabled(rowElement, isDisabled) {
+            const observacaoTextarea = getObservacaoTextarea(rowElement);
+            if (observacaoTextarea) {
+                observacaoTextarea.disabled = isDisabled;
+                if (isDisabled) {
+                    observacaoTextarea.classList.add('disabled-locked');
+                } else {
+                    observacaoTextarea.classList.remove('disabled-locked');
+                }
+            }
+        }
+
+
+        async function salvarDadosPlanilha(rowElement) {
+            const statusSelect = rowElement.querySelector('td[data-col="status"] select');
+            const colaboradorTd = getColaboradorTd(rowElement);
+            const observacaoTextarea = getObservacaoTextarea(rowElement);
+
+            const rowIndex = rowElement.getAttribute('data-row-index');
+
+            const gidAtual = GID_ATUAL;
+            let nomeDaAba = Object.keys(FONTES_DADOS).find(key => FONTES_DADOS[key] === gidAtual);
+
+            if (!rowIndex || !nomeDaAba) {
+                console.error("Índice da linha ou nome da aba não encontrado. Não é possível salvar.");
+                return;
+            }
+
+            // Garante que o valor enviado é string vazia se estiver nulo, 'null' ou vazio
+            const observacaoValue = observacaoTextarea.value.trim().toUpperCase() === 'NULL' || observacaoTextarea.value.trim() === ''
+                ? ''
+                : observacaoTextarea.value.trim();
+
+            const dataToSave = {
+                rowIndex: rowIndex,
+                status: statusSelect.value,
+                colaborador: colaboradorTd.textContent.trim(),
+                observacao: observacaoValue,
+                aba: nomeDaAba
+            };
+
+            // INÍCIO DO AJUSTE: Parar o Polling antes de iniciar a operação assíncrona
+            pararPolling(); 
+
+            try {
+
+                console.log("Dados a serem enviados:", dataToSave);
+
+                const response = await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    mode: 'cors',
+                    headers: {
+                        'Content-Type': 'text/plain;charset=utf-8',
+                    },
+                    body: JSON.stringify(dataToSave)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    console.log(`Linha ${rowIndex} atualizada com status: ${dataToSave.status}.`);
+
+                    if (dataToSave.status.toUpperCase() === 'CONCLUÍDO') {
+                        // Recarrega a tabela para remover a linha da visualização
+                        await carregarDadosPlanilha(GID_ATUAL);
+                        alert(`Concluído e Salvo na aba ${nomeDaAba}! A tabela foi recarregada.`);
+                    } else {
+                        // NOVO: Re-aplica o filtro para garantir que a linha atualizada se mantenha
+                        applyFilter();
+                    }
+                } else {
+                    alert(`ERRO ao salvar na planilha: ${result.error}. Consulte o console.`);
+                    console.error("Erro do Apps Script:", result.error);
+                }
+            } catch (error) {
+                alert("ERRO de conexão ou rede ao tentar salvar os dados. Verifique a WEB_APP_URL.");
+                console.error("Erro no fetch:", error);
+            } finally {
+                // FIM DO AJUSTE: Reiniciar o Polling após a conclusão da operação (sucesso ou falha)
+                iniciarPolling(); 
+            }
+        }
+        // -----------------------------------------------------
+
+        // --- Lógica do Modal ---
+        const modal = document.getElementById('colaboradorModal');
+        const selectModal = document.getElementById('colaboradorSelectModal');
+        const salvarBtn = document.getElementById('salvarColaboradorBtn');
+        const fecharBtn = document.getElementById('fecharModalBtn');
+
+        function preencherModalColaboradores() {
+            selectModal.innerHTML = '<option value="">-- Selecione um Nome --</option>';
+
+            LISTA_COLABORADORES.forEach(nome => {
+                const option = document.createElement('option');
+                option.value = nome;
+                option.textContent = nome;
+                selectModal.appendChild(option);
+            });
+        }
+
+
+        function abrirModal(selectElement) {
+            // NOVO: Fecha o popup de filtro, se estiver aberto
+            closeFilterPopup();
+
+            currentSelectElement = selectElement;
+
+            preencherModalColaboradores();
+
+            modal.style.display = 'block';
+            selectModal.focus();
+
+            const row = selectElement.closest('tr');
+            const colaboradorTd = getColaboradorTd(row);
+
+            selectModal.value = colaboradorTd.textContent.trim();
+        }
+
+        function fecharModal() {
+            modal.style.display = 'none';
+
+            const row = currentSelectElement ? currentSelectElement.closest('tr') : null;
+            const colaboradorTd = row ? getColaboradorTd(row) : null;
+
+            // Reverte o status se o modal foi cancelado e não foi escolhido colaborador
+            if (currentSelectElement && row && colaboradorTd.textContent.trim() === '') {
+                const prevValue = currentSelectElement.getAttribute('data-prev-value');
+                currentSelectElement.value = prevValue;
+                currentSelectElement.setAttribute('data-prev-value', prevValue);
+                row.classList.remove('andamento-ativo');
+
+                Array.from(currentSelectElement.options).forEach(option => option.disabled = false);
+
+                // NOVO: Desabilita a observação se voltar para status vazio
+                toggleObservacaoDisabled(row, true);
+            }
+
+            currentSelectElement = null;
+            selectModal.value = ''; // Limpa a seleção do modal
+        }
+
+        function salvarColaborador() {
+            if (!currentSelectElement) return;
+
+            const novoNome = selectModal.value.trim();
+            const row = currentSelectElement.closest('tr');
+            const colaboradorTd = getColaboradorTd(row);
+            const statusSelect = currentSelectElement;
+            const rowIndex = row.getAttribute('data-row-index');
+
+
+            if (novoNome) {
+                // --- ATUALIZAÇÃO VISUAL INSTANTÂNEA ---
+                colaboradorTd.textContent = novoNome;
+                row.classList.add('andamento-ativo');
+                row.classList.remove('concluido-ativo');
+                statusSelect.value = 'EM ANDAMENTO';
+
+                toggleFormularioDisabled(row, false); // Desbloqueia campos exceto observação
+                toggleObservacaoDisabled(row, false); // Habilita o campo de observação
+
+                // BLOQUEIO VISUAL COMPLETO PARA FORÇAR FLUXO APENAS PARA CONCLUÍDO/EM ANDAMENTO
+                Array.from(statusSelect.options).forEach(option => {
+                    if (option.value.toUpperCase() !== 'EM ANDAMENTO' && option.value.toUpperCase() !== 'CONCLUÍDO') {
+                        option.disabled = true;
+                    }
+                });
+
+                statusSelect.setAttribute('data-prev-value', statusSelect.value);
+                // --- FIM ATUALIZAÇÃO VISUAL INSTANTÂNEA ---
+
+
+                // NOVO: Envia a mensagem de bloqueio para outras abas (instantâneo)
+                statusChannel.postMessage({
+                    action: 'lock_item',
+                    rowIndex: rowIndex,
+                    colaborador: novoNome
+                });
+
+                // CHAMA O SALVAMENTO (Assíncrono, que agora gerencia o Polling)
+                salvarDadosPlanilha(row);
+                
+                // REMOVIDA A CHAMADA REDUNDANTE: gerenciarVisibilidadeColunas(statusSelect);
+
+            } else {
+                statusSelect.value = statusSelect.getAttribute('data-prev-value');
+                alert("Selecione um nome para iniciar o atendimento.");
+                return;
+            }
+
+            fecharModal();
+        }
+
+        fecharBtn.addEventListener('click', fecharModal);
+        salvarBtn.addEventListener('click', salvarColaborador);
+
+        window.onclick = function (event) {
+            if (event.target == modal) {
+                fecharModal();
+            }
+
+            // NOVO: Fecha o popup de filtro se o clique for fora dele
+            const filterPopup = document.getElementById('filter-popup');
+            const isClickedOutsideFilter = filterPopup.style.display === 'block' &&
+                !filterPopup.contains(event.target) &&
+                !event.target.closest('th[data-col][data-filterable="true"]');
+
+            if (isClickedOutsideFilter) {
+                closeFilterPopup();
+            }
+        }
+
+        selectModal.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                salvarColaborador();
+            }
+        });
+
+
+        // Função para gerenciar o fluxo de status e visibilidade das colunas
+        function gerenciarVisibilidadeColunas(selectElement) {
+            const row = selectElement.closest('tr');
+            const valorAtual = selectElement.value.toUpperCase();
+
+            const valorAnterior = selectElement.getAttribute('data-prev-value') ?
+                selectElement.getAttribute('data-prev-value').toUpperCase() :
+                '';
+
+            const colaboradorPreenchido = getColaboradorTd(row).textContent.trim() !== '';
+
+
+            // 1. REGRA PRINCIPAL: Bloqueio de transição
+            if (valorAnterior === 'EM ANDAMENTO' &&
+                valorAtual !== 'CONCLUÍDO' &&
+                valorAtual !== 'EM ANDAMENTO') {
+                selectElement.value = valorAnterior;
+                alert("O atendimento já está 'EM ANDAMENTO'. A única transição válida é para 'CONCLUÍDO' ou 'EM ANDAMENTO' (manter).");
+                return;
+            }
+
+            // 2. REGRA SECUNDÁRIA: Bloqueio para CONCLUÍDO
+            if (valorAtual === 'CONCLUÍDO' && valorAnterior !== 'EM ANDAMENTO' && valorAnterior !== 'CONCLUÍDO') {
+                selectElement.value = valorAnterior;
+                alert("Para concluir, o status deve ter sido definido como 'EM ANDAMENTO' primeiro.");
+                return;
+            }
+
+            // Limpa classes e desbloqueia por padrão (exceto observação)
+            row.classList.remove('andamento-ativo', 'concluido-ativo');
+            toggleFormularioDisabled(row, false); // Desbloqueia campos exceto observação
+            toggleObservacaoDisabled(row, true); // NOVO: Garante que a observação está desabilitada
+
+            // Re-habilita todas as opções do status select antes de aplicar o novo bloqueio
+            Array.from(selectElement.options).forEach(option => option.disabled = false);
+
+
+            // Tratamento da transição para "EM ANDAMENTO"
+            if (valorAtual === 'EM ANDAMENTO') {
+
+                if (!colaboradorPreenchido) {
+                    abrirModal(selectElement); // ABRE O MODAL PARA OBTER O NOME
+                    return; // SAI DA FUNÇÃO, O SALVAMENTO SERÁ FEITO EM salvarColaborador()
+                } else {
+                    row.classList.add('andamento-ativo');
+                    // Habilita o campo de observação
+                    toggleObservacaoDisabled(row, false);
+                    salvarDadosPlanilha(row); // Salva a mudança (mantendo EM ANDAMENTO, ou quando o filtro foi aplicado manualmente)
+                }
+
+                // BLOQUEIO VISUAL COMPLETO PARA FORÇAR FLUXO APENAS PARA CONCLUÍDO/EM ANDAMENTO
+                Array.from(selectElement.options).forEach(option => {
+                    if (option.value.toUpperCase() !== 'EM ANDAMENTO' && option.value.toUpperCase() !== 'CONCLUÍDO') {
+                        option.disabled = true;
+                    }
+                });
+
+
+            } else if (valorAtual === 'CONCLUÍDO') {
+
+                row.classList.add('concluido-ativo');
+                toggleFormularioDisabled(row, true); // Bloqueia todos os campos exceto observação
+                toggleObservacaoDisabled(row, true); // Bloqueia observação também
+                salvarDadosPlanilha(row);
+
+                Array.from(selectElement.options).forEach(option => option.disabled = false);
+
+            } else { // Valor Atual é "" (vazio/pendente)
+
+                const colaboradorTd = getColaboradorTd(row);
+                colaboradorTd.textContent = '';
+
+                toggleObservacaoDisabled(row, true); // Garante que a observação está desabilitada
+                salvarDadosPlanilha(row);
+            }
+
+            // 3. ATUALIZAÇÃO DO VALOR ANTERIOR
+            selectElement.setAttribute('data-prev-value', selectElement.value);
+        }
+
+
+        // --- Função para buscar a lista de colaboradores (mantida e otimizada) ---
+        async function carregarListaColaboradores() {
+            try {
+                const response = await fetch(COLABORADORES_PLANILHA_URL);
+                const rawText = await response.text();
+
+                const startIndex = rawText.indexOf('{');
+                const endIndex = rawText.lastIndexOf('}');
+                const jsonText = rawText.substring(startIndex, endIndex + 1);
+
+                const data = JSON.parse(jsonText);
+                const linhas = data.table.rows;
+
+                const colaboradores = linhas.map(row => {
+                    const cellData = row.c[0];
+                    return cellData && cellData.v !== undefined ? String(cellData.v).trim() : null;
+                }).filter((nome, index) => nome && index > 0);
+
+                LISTA_COLABORADORES = colaboradores.sort();
+
+            } catch (error) {
+                console.error("Erro ao carregar lista de colaboradores:", error);
+            }
+        }
+
+
+        // --- Função para inicializar e gerenciar os botões de aba ---
+        async function iniciarTabs() {
+            await carregarListaColaboradores();
+
+            const tabsContainer = document.getElementById('tabs-container');
+            tabsContainer.innerHTML = '';
+
+            // CORREÇÃO: Somente define GID_ATUAL se ele não for um GID válido (mantendo a aba atual)
+            if (!Object.values(FONTES_DADOS).includes(GID_ATUAL)) {
+                const primeiroNomeAba = Object.keys(FONTES_DADOS)[0];
+                if (primeiroNomeAba) {
+                    GID_ATUAL = FONTES_DADOS[primeiroNomeAba];
+                }
+            }
+
+
+            Object.keys(FONTES_DADOS).forEach(nome => {
+                const gid = FONTES_DADOS[nome];
+                const button = document.createElement('button');
+                button.textContent = nome;
+                button.classList.add('tab-button');
+
+                if (gid === GID_ATUAL) {
+                    button.classList.add('active');
+                }
+
+                button.addEventListener('click', () => {
+                    if (GID_ATUAL === gid) return;
+
+                    GID_ATUAL = gid;
+                    currentFilters = {}; // NOVO: Limpa os filtros ao trocar de aba
+
+                    document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+
+                    const container = document.getElementById('tabela-container');
+                    container.textContent = 'Carregando dados...';
+                    container.classList.add('loading');
+
+                    // NOVO: Parar e reiniciar o Polling durante a troca de aba
+                    pararPolling();
+                    carregarDadosPlanilha(GID_ATUAL).finally(() => {
+                        iniciarPolling();
+                    });
+                });
+                tabsContainer.appendChild(button);
+            });
+
+            // Só carrega os dados se o GID_ATUAL for definido 
+            if(GID_ATUAL) {
+                // Ao carregar a página pela primeira vez (DOMContentLoaded), o Polling já está parado,
+                // mas não precisa de um .finally() aqui, pois o iniciarPolling é chamado logo depois.
+                // Mas, como está dentro de uma função async que é chamada pelo Polling, o await é necessário.
+                await carregarDadosPlanilha(GID_ATUAL);
+            }
+        }
+        // --------------------------------------------------------------------
+
+
+        // Função para carregar e renderizar os dados
+        async function carregarDadosPlanilha(gid) {
+            const container = document.getElementById('tabela-container');
+            const currentUrl = BASE_PLANILHA_URL + gid;
+
+            try {
+                const response = await fetch(currentUrl);
+                const rawText = await response.text();
+
+                const startIndex = rawText.indexOf('{');
+                const endIndex = rawText.lastIndexOf('}');
+                const jsonText = rawText.substring(startIndex, endIndex + 1);
+
+                const data = JSON.parse(jsonText);
+                const linhas = data.table.rows;
+                tableData = []; // NOVO: Zera os dados brutos
+
+                const table = document.createElement('table');
+
+                // 3. Cria o Cabeçalho da Tabela
+                const thead = table.createTHead();
+                const headerRow = thead.insertRow();
+                COLUNA_MAPA.forEach(colMap => {
+                    const th = document.createElement('th');
+                    th.textContent = colMap.novoTitulo;
+                    th.setAttribute('data-col', colMap.colunaId);
+                    th.setAttribute('data-filterable', colMap.filterable); // NOVO
+
+                    // NOVO: Adiciona o ícone e o listener se for filtrável
+                    if (colMap.filterable) {
+                        const icon = document.createElement('span');
+                        icon.classList.add('filter-icon');
+                        th.appendChild(icon);
+
+                        th.addEventListener('click', (event) => {
+                            event.stopPropagation();
+                            openFilterPopup(colMap.colunaId, th);
+                        });
+                    }
+                    // FIM NOVO
+
+                    headerRow.appendChild(th);
+                });
+
+
+                // 4. Cria o Corpo da Tabela
+                const tbody = table.createTBody();
+                linhas.forEach((row, rowIndex) => {
+                    const planilhaRowIndex = rowIndex + 2;
+
+                    // NOVO: Armazena os dados brutos para uso no filtro
+                    const rowData = {
+                        rowIndex: planilhaRowIndex,
+                        cells: []
+                    };
+
+                    const tr = tbody.insertRow();
+                    tr.setAttribute('data-row-index', planilhaRowIndex);
+
+                    if (!row.c) return;
+
+                    let isRowConcluded = false;
+                    let initialStatusValue = '';
+
+
+                    COLUNA_MAPA.forEach((colMap, newIndex) => {
+                        const cellData = row.c[colMap.jsonIndex];
+                        const rawCellValue = cellData && cellData.v !== undefined ? String(cellData.v) : '';
+                        const cellValue = rawCellValue.toUpperCase() === 'NULL' ? '' : rawCellValue;
+
+                        // NOVO: Armazena no objeto de dados brutos
+                        rowData.cells.push({
+                            columnId: colMap.colunaId,
+                            value: cellValue
+                        });
+                        // FIM NOVO
+
+                        const td = tr.insertCell();
+                        td.setAttribute('data-col', colMap.colunaId);
+
+                        // Coluna 'STATUS'
+                        if (colMap.colunaId === 'status') {
+                            const select = document.createElement('select');
+
+                            select.setAttribute('data-prev-value', cellValue);
+                            initialStatusValue = cellValue;
+
+                            select.addEventListener('change', (event) => {
+                                gerenciarVisibilidadeColunas(event.target);
+                            });
+
+                            const options = ["", "EM ANDAMENTO", "CONCLUÍDO"];
+
+                            options.forEach(optionText => {
+                                const option = document.createElement('option');
+                                option.value = optionText;
+                                option.textContent = optionText;
+
+                                if (optionText.toUpperCase() === cellValue.toUpperCase()) {
+                                    option.selected = true;
+                                }
+                                select.appendChild(option);
+                            });
+
+                            td.appendChild(select);
+
+                            // Coluna 'OBSERVAÇÃO'
+                        } else if (colMap.colunaId === 'observacao') {
+                            const textarea = document.createElement('textarea');
+                            textarea.value = cellValue;
+                            textarea.placeholder = "Digite aqui suas observações...";
+
+                            // DESABILITA POR PADRÃO (será habilitada apenas em 'EM ANDAMENTO')
+                            textarea.disabled = true;
+                            textarea.classList.add('disabled-locked');
+
+
+                            textarea.addEventListener('blur', () => {
+                                // SÓ SALVA SE NÃO ESTIVER DESABILITADO
+                                if (!textarea.disabled) {
+                                    salvarDadosPlanilha(tr);
+                                }
+                            });
+
+                            td.appendChild(textarea);
+
+                        } else {
+                            // Outras colunas
+                            td.textContent = cellValue;
+                        }
+                    });
+
+                    tableData.push(rowData); // NOVO: Adiciona a linha de dados brutos ao array global
+
+
+                    // Lógica de Classes e Bloqueio baseada nos valores iniciais
+                    const upperCaseStatus = initialStatusValue.toUpperCase();
+                    const colaboradorTd = getColaboradorTd(tr);
+                    const colaboradorValue = colaboradorTd.textContent.trim();
+                    const statusSelect = tr.querySelector('td[data-col="status"] select');
+
+                    // Linha em ANDAMENTO (habilita campos e observação)
+                    if (colaboradorValue !== '' && upperCaseStatus === 'EM ANDAMENTO') {
+                        tr.classList.add('andamento-ativo');
+
+                        // NOVO: Habilita a observação
+                        toggleObservacaoDisabled(tr, false);
+
+                        // Aplica o bloqueio visual inicial para forçar o fluxo (bloqueia o status)
+                        Array.from(statusSelect.options).forEach(option => {
+                            if (option.value.toUpperCase() !== 'EM ANDAMENTO' && option.value.toUpperCase() !== 'CONCLUÍDO') {
+                                option.disabled = true;
+                            }
+                        });
+                    }
+
+                    // Linha CONCLUÍDA (bloqueia tudo)
+                    if (upperCaseStatus === 'CONCLUÍDO') {
+                        tr.classList.add('concluido-ativo');
+                        isRowConcluded = true;
+                    }
+
+                    // Aplica o disabled final se a linha estiver CONCLUÍDA ao carregar
+                    if (isRowConcluded) {
+                        toggleFormularioDisabled(tr, true); // Bloqueia outros campos
+                        toggleObservacaoDisabled(tr, true); // Bloqueia observação
+                    }
+
+                    // Linha VAZIA (Pendente) - A observação já está bloqueada por padrão.
+                });
+
+                // 5. Insere a Tabela no Container
+                container.textContent = '';
+                container.classList.remove('loading');
+                container.appendChild(table);
+
+                // NOVO: Re-aplica filtros existentes ao carregar nova aba
+                applyFilter();
+
+            } catch (error) {
+                console.error("Erro ao carregar os dados da planilha:", error);
+                container.textContent = `Erro ao carregar os dados da aba ${gid}. Verifique se a planilha está pública e a URL está correta.`;
+                container.classList.remove('loading');
+                throw error; // Propaga o erro para o Polling poder capturar
+            }
+        }
+
+
+        // -----------------------------------------------------
+        // --- NOVA LÓGICA DE FILTRO ESTILO EXCEL ---
+        // -----------------------------------------------------
+
+        function openFilterPopup(columnId, headerElement) {
+            closeFilterPopup(); // Fechá qualquer filtro anterior
+
+            const popup = document.getElementById('filter-popup');
+            const optionsContainer = document.getElementById('filter-options');
+            optionsContainer.innerHTML = '';
+            currentFilterColumnId = columnId;
+
+            // 1. Coleta os valores únicos da coluna
+            const columnIndex = COLUNA_MAPA.findIndex(col => col.colunaId === columnId);
+            if (columnIndex === -1) return;
+
+            const uniqueValues = new Set();
+            tableData.forEach(rowData => {
+
+                let cellValue = '';
+
+                // Tratamento especial para "status" e "colaborador" que mudam de valor no DOM
+                const cellElement = document.querySelector(`tr[data-row-index="${rowData.rowIndex}"] td[data-col="${columnId}"]`);
+
+                if (columnId === 'status' && cellElement) {
+                    const select = cellElement.querySelector('select');
+                    cellValue = select ? select.value : '';
+                } else if (columnId === 'colaborador' && cellElement) {
+                    cellValue = cellElement.textContent.trim();
+                } else {
+                    // Para colunas estáticas, usa o valor armazenado em tableData
+                    cellValue = rowData.cells[columnIndex].value;
+                }
+
+                // Trata valores vazios como "(Vazio)"
+                if (cellValue === null || cellValue === undefined || String(cellValue).trim() === '') {
+                    uniqueValues.add('(Vazio)');
+                } else {
+                    uniqueValues.add(String(cellValue).trim());
+                }
+            });
+
+            // Converte para array e ordena
+            const sortedValues = Array.from(uniqueValues).sort((a, b) => {
+                if (a === '(Vazio)') return 1;
+                if (b === '(Vazio)') return -1;
+                return a.localeCompare(b);
+            });
+
+            // 2. Cria os checkboxes
+            // Se não houver filtro para a coluna, seleciona todos
+            const currentSelected = currentFilters[columnId] || sortedValues;
+
+            sortedValues.forEach(value => {
+                const id = `filter-${columnId}-${value.replace(/[^a-zA-Z0-9]/g, '_')}`;
+                const isChecked = currentSelected.includes(value);
+
+                const label = document.createElement('label');
+                label.setAttribute('for', id);
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = id;
+                checkbox.value = value;
+                checkbox.checked = isChecked;
+
+                label.appendChild(checkbox);
+                label.appendChild(document.createTextNode(value));
+                optionsContainer.appendChild(label);
+            });
+
+            // 3. Posiciona o popup
+            const rect = headerElement.getBoundingClientRect();
+            popup.style.top = `${rect.bottom + window.scrollY}px`;
+            popup.style.left = `${rect.left + window.scrollX}px`;
+            popup.style.display = 'block';
+
+            // Atualiza o estado do botão "Selecionar Todos"
+            updateSelectAllButtonState(optionsContainer);
+        }
+
+        function closeFilterPopup() {
+            document.getElementById('filter-popup').style.display = 'none';
+            currentFilterColumnId = null;
+        }
+
+        function applyFilter() {
+            const columnId = currentFilterColumnId;
+            const popup = document.getElementById('filter-popup');
+
+            // Se a função for chamada após um save, o popup pode estar fechado
+            if (columnId) {
+                const checkedValues = Array.from(popup.querySelectorAll('#filter-options input[type="checkbox"]:checked'))
+                    .map(input => input.value);
+
+                const allValues = Array.from(popup.querySelectorAll('#filter-options input[type="checkbox"]'))
+                    .map(input => input.value);
+
+                if (checkedValues.length === allValues.length || checkedValues.length === 0) {
+                    delete currentFilters[columnId];
+                } else {
+                    currentFilters[columnId] = checkedValues;
+                }
+            }
+
+            // Aplica o filtro na tabela
+            const tableBody = document.querySelector('#tabela-container tbody');
+            if (!tableBody) return;
+
+            const filterKeys = Object.keys(currentFilters);
+            const columnIndexMap = COLUNA_MAPA.reduce((acc, col, index) => {
+                acc[col.colunaId] = index;
+                return acc;
+            }, {});
+
+            Array.from(tableBody.rows).forEach(row => {
+                let isVisible = true;
+                const rowIndex = row.getAttribute('data-row-index');
+                const rowData = tableData.find(d => d.rowIndex == rowIndex); // Busca os dados brutos
+
+                if (!rowData) {
+                    row.style.display = '';
+                    return;
+                }
+
+                filterKeys.forEach(colId => {
+                    if (!isVisible) return;
+
+                    const allowedValues = currentFilters[colId];
+                    if (!allowedValues || allowedValues.length === 0) return;
+
+                    let cellValue = '';
+                    // 1. Pega o valor real da célula (tratamento para select e td)
+                    const cellElement = row.querySelector(`td[data-col="${colId}"]`);
+
+                    if (colId === 'status' && cellElement) {
+                        const select = cellElement.querySelector('select');
+                        cellValue = select ? select.value : '';
+                    } else if (colId === 'colaborador' && cellElement) {
+                        cellValue = cellElement.textContent.trim();
+                    } else {
+                        // Para colunas estáticas (usa o valor armazenado em rowData)
+                        const colIndex = columnIndexMap[colId];
+                        cellValue = rowData.cells[colIndex].value;
+                    }
+
+                    const finalValue = (cellValue === null || cellValue === undefined || String(cellValue).trim() === '') ? '(Vazio)' : String(cellValue).trim();
+
+                    // 2. Verifica se o valor está nos valores permitidos
+                    if (!allowedValues.includes(finalValue)) {
+                        isVisible = false;
+                    }
+                });
+
+                row.style.display = isVisible ? '' : 'none';
+            });
+
+            // 3. Atualiza os ícones de cabeçalho
+            document.querySelectorAll('th[data-col][data-filterable="true"]').forEach(th => {
+                const colId = th.getAttribute('data-col');
+                if (currentFilters[colId]) {
+                    th.classList.add('filtered');
+                } else {
+                    th.classList.remove('filtered');
+                }
+            });
+
+            if (columnId) {
+                closeFilterPopup();
+            }
+        }
+
+        // Gerencia o botão "Selecionar Todos"
+        function toggleSelectAll(selectAllButton) {
+            const optionsContainer = document.getElementById('filter-options');
+            const checkboxes = optionsContainer.querySelectorAll('input[type="checkbox"]');
+
+            let allChecked = selectAllButton.textContent === 'Desselecionar Todos';
+
+            checkboxes.forEach(cb => {
+                cb.checked = !allChecked;
+            });
+
+            // Atualiza o texto do botão após a ação
+            selectAllButton.textContent = allChecked ? 'Selecionar Todos' : 'Desselecionar Todos';
+        }
+
+        function updateSelectAllButtonState(optionsContainer) {
+            const checkboxes = optionsContainer.querySelectorAll('input[type="checkbox"]');
+            const selectAllButton = document.getElementById('filter-select-all');
+            const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+
+            if (checkedCount === checkboxes.length) {
+                selectAllButton.textContent = 'Desselecionar Todos';
+            } else {
+                selectAllButton.textContent = 'Selecionar Todos';
+            }
+        }
+
+
+        // 4. Inicializa os botões do popup
+        document.getElementById('filter-apply').addEventListener('click', applyFilter);
+
+        document.getElementById('filter-select-all').addEventListener('click', (event) => {
+            toggleSelectAll(event.target);
+        });
+
+        document.getElementById('filter-clear').addEventListener('click', () => {
+            if (currentFilterColumnId) {
+                // Remove o filtro
+                delete currentFilters[currentFilterColumnId];
+
+                // Re-aplica para atualizar a visualização (remove o filtro)
+                applyFilter();
+            }
+        });
+
+        // Evento para atualizar o botão "Selecionar Todos" quando um checkbox é clicado
+        document.getElementById('filter-options').addEventListener('change', (event) => {
+            if (event.target.type === 'checkbox') {
+                updateSelectAllButtonState(document.getElementById('filter-options'));
+            }
+        });
+        // -----------------------------------------------------
+        // --- FIM NOVA LÓGICA DE FILTRO ESTILO EXCEL ---
+        // -----------------------------------------------------
+
+
+        document.addEventListener('DOMContentLoaded', iniciarTabs);
+    </script>
+
+    <script>
+
+
+        const INTERVALO_ATUALIZACAO_MS = 15000; // 15 segundos (Corrigido de 2000)
+
+        let idIntervaloAtualizacao = null;
+        let isPollingRunning = false; // NOVO: Flag para evitar execuções simultâneas
+
+
+        function iniciarPolling() {
+
+            if (idIntervaloAtualizacao !== null) {
+
+                return;
+            }
+
+            // NOVO: Usa uma função assíncrona para que possamos esperar que iniciarTabs termine
+            idIntervaloAtualizacao = setInterval(async () => {
+
+                // NOVO: Se o Polling anterior ainda estiver em execução, não inicia o novo ciclo
+                if (isPollingRunning) {
+                    console.log("Polling pulado: atualização anterior ainda em andamento.");
+                    return;
+                }
+
+                if (typeof iniciarTabs === 'function') {
+                    isPollingRunning = true; // Marca o Polling como ativo
+                    try {
+                        // Chama a função assíncrona e espera
+                        await iniciarTabs(); 
+                    } catch (e) {
+                        console.error("Erro durante o ciclo de Polling:", e);
+                    } finally {
+                        isPollingRunning = false; // Marca o Polling como finalizado
+                    }
+                }
+            }, INTERVALO_ATUALIZACAO_MS);
+        }
+
+
+        function pararPolling() {
+            if (idIntervaloAtualizacao !== null) {
+                clearInterval(idIntervaloAtualizacao);
+                idIntervaloAtualizacao = null;
+                isPollingRunning = false; // Garante que a flag seja limpa ao parar
+            }
+        }
+
+
+        iniciarPolling();
+
+    </script>
+
+</body>
+
+</html>
